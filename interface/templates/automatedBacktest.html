@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated Backtest</title>
+    <link rel="stylesheet" type="text/css" href="/static/styles.css">
+
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">Automated Backtest</h1>
+    <form action="/submit" method="post">
+        <label for="strategy">Strategy Name:</label>
+        <input type="text" name="bbrsi" value="BB_RSI" readonly><br><br>
+        
+        <label for="dtFrom">From Date:</label>
+        <input type="date" id="dtFrom" name="dtFrom" min="2023-01-01"><br><br>
+        
+        <label for="dtTo">To Date:</label>
+        <input type="date" id="dtTo" name="dtTo" min="2023-01-02"><br><br>
+        
+        <label for="number1">Long Low:</label>
+        <input type="number" id="longLow" name="longLow" min="0" max="100"><br><br>
+        
+        <label for="number2">Long High:</label>
+        <input type="number" id="longHigh" name="longHigh" min="0" max="100"><br><br>
+        
+        <label for="number1">Short Low:</label>
+        <input type="number" id="shortLow" name="shortLow" min="0" max="100"><br><br>
+        
+        <label for="number2">Short High:</label>
+        <input type="number" id="shortHigh" name="shortHigh" min="0" max="100"><br><br>
+
+        <input type="submit" value="Submit">
+      </form>
+  </div>
+
+      <script>
+        // Set max date for the date input fields
+        const today = new Date();
+        const twoDaysBefore = new Date(today);
+        twoDaysBefore.setDate(today.getDate() - 2);
+        const formattedTwoDaysBefore = twoDaysBefore.toISOString().split('T')[0];
+        document.getElementById('dtFrom').setAttribute('max', formattedTwoDaysBefore);
+
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        const formattedYesterday = yesterday.toISOString().split('T')[0];
+        document.getElementById('dtTo').setAttribute('max', formattedYesterday);
+      
+        
+      </script>
+</body>
+</html>
