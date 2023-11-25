@@ -1,0 +1,6 @@
+SELECT symName, calendaryear, revenue
+FROM tblIncomeStatement
+WHERE symName='AAPL' AND [period]='FY' => condition of fetching rows from the table
+ORDER BY calendaryear DESC => The order of the original table
+OFFSET 0 ROWS => No of Rows to skip
+FETCH NEXT 5 ROWS ONLY => No of rows to fetch
