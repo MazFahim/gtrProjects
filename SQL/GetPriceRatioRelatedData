@@ -1,0 +1,82 @@
+CREATE TABLE #LastDateHistory (
+    SymName NVARCHAR(255),
+    dtDate DATETIME,
+    [Close] DECIMAL(18, 2)
+);
+
+-- Insert data for the last date of each symbol
+WITH RankedHistory AS (
+    SELECT
+        SymName,
+        dtDate,
+        [Close],
+        ROW_NUMBER() OVER (PARTITION BY SymName ORDER BY dtDate DESC) AS RowNum
+    FROM tblHistoryData
+)
+
+INSERT INTO #LastDateHistory (SymName, dtDate, [Close])
+SELECT SymName, dtDate, [Close]
+FROM RankedHistory
+WHERE RowNum = 1;
+
+-- Select data from #LastDateHistory
+--SELECT TOP 15 * FROM #LastDateHistory;
+
+--=======================================
+
+-- Create a table to store results
+CREATE TABLE #LastDateCompanyMetrics (
+    SymName NVARCHAR(255),
+    dtDate DATETIME,
+    RevenuePerShare DECIMAL(18, 2),
+    CashPerShare DECIMAL(18, 2),
+    freeCashFlowPerShare DECIMAL(18, 2),
+    -- Add other columns as needed
+);
+
+-- Insert data for the last date of each symbol
+WITH RankedMetrics AS (
+    SELECT
+        SymName,
+        dtDate,
+        RevenuePerShare,
+		cashPerShare,
+		freeCashFlowPerShare,
+        -- Add other columns as needed
+        ROW_NUMBER() OVER (PARTITION BY SymName ORDER BY dtDate DESC) AS RowNum
+    FROM tblCompanyKeyMetrics
+)
+
+INSERT INTO #LastDateCompanyMetrics (SymName, dtDate, RevenuePerShare, CashPerShare, freeCashFlowPerShare)
+SELECT SymName, dtDate, RevenuePerShare, cashPerShare, freeCashFlowPerShare
+-- Add other columns as needed
+FROM RankedMetrics
+WHERE RowNum = 1;
+
+-- Select data from #LastDateCompanyMetrics
+--SELECT TOP 15 * FROM #LastDateCompanyMetrics;
+
+--SELECT A.SymName,
+UPDATE A
+SET A.PS = B.[Close]/C.RevenuePerShare, A.PC = B.[Close]/C.CashPerShare, A.PFCF = B.[Close]/C.freeCashFlowPerShare
+FROM tblScreener A
+CROSS APPLY(
+	SELECT * 
+	FROM #LastDateHistory BB
+	WHERE BB.SymName = A.SymName
+	AND BB.[Close] IS NOT NULL
+)B
+CROSS APPLY(
+	SELECT * 
+	FROM #LastDateCompanyMetrics CC
+	WHERE CC.SymName = A.SymName
+	AND CC.RevenuePerShare>0
+	AND CC.CashPerShare>0
+	AND CC.freeCashFlowPerShare>0
+)C
+
+-- Drop the temporary table
+DROP TABLE #LastDateCompanyMetrics;
+
+-- Drop the temporary table
+DROP TABLE #LastDateHistory;
