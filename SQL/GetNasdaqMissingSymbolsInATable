@@ -1,0 +1,16 @@
+SELECT DISTINCT symName
+INTO #TEMP
+	FROM tblHistoryData A
+	WHERE A.symName IN (
+	SELECT SymName
+    FROM [P3Data].[dbo].[tblSymbol] BB
+    WHERE IndexName LIKE '%NASDAQ%')
+
+SELECT SymName
+    FROM [P3Data].[dbo].[tblSymbol] BB
+    WHERE IndexName LIKE '%NASDAQ%'
+	AND SymName NOT IN(
+		SELECT SymName
+		FROM #TEMP
+	)
+DROP TABLE #TEMP
