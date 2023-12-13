@@ -1,0 +1,1 @@
+This project generates heatmap to display which symbol performed well under a strategy and which strategy performed better for a symbol from the data fetching from the database.
