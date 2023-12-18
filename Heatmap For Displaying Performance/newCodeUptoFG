@@ -1,0 +1,54 @@
+import pandas as pd
+import plotly.graph_objects as go
+import dbTransaction
+import numpy as np
+
+def fncsymbolUnderAStrategy(strategy, symbol):
+    df = dbTransaction.fncForASymbolUnderAStrategy(strategy, symbol)
+
+    if isinstance(df, list):
+        df = pd.DataFrame(df, columns=['BackId', 'SFlag', 'SName', 'SValue', 'SymName', 'MaxReturn'])
+
+    pivot_df = df.pivot(index='BackId', columns='SFlag', values=['SValue', 'MaxReturn'])
+    pivot_df.columns = ['_'.join(map(str, col)) for col in pivot_df.columns.values]
+    pivot_df.reset_index(inplace=True)
+
+    pivot_df.drop_duplicates(subset=['SValue_Long', 'SValue_Short'], inplace=True)
+    pivot_df.rename(columns={'value_Long': 'long', 'value_Short': 'short', 'return_Long': 'long_return', 'return_Short': 'short_return'}, inplace=True)
+    pivot_df.drop(columns=['MaxReturn_Short'], inplace=True)
+
+    pivot_df['MaxReturn_Long'] = pivot_df['MaxReturn_Long'].astype(float)  
+    pivot_df.drop(columns=['BackId'], inplace=True)
+    pivot_df.rename(columns={'SValue_Long': 'long', 'SValue_Short': 'short', 'MaxReturn_Long': 'MaxReturn'}, inplace=True)
+    pivot_df.sort_values(by=['long', 'short'], inplace=True)
+    print(pivot_df)
+    heatmap_data = pivot_df.pivot(index='long', columns='short', values='MaxReturn').astype(float)
+
+    range_high = max(pivot_df['MaxReturn']) if max(pivot_df['MaxReturn']) > 1 else 1
+    range_low = min(pivot_df['MaxReturn']) if min(pivot_df['MaxReturn']) < -1 else -1
+
+    fig = go.Figure(data=go.Heatmap(
+        z=heatmap_data.values,
+        x=heatmap_data.columns,
+        y=heatmap_data.index,
+        colorscale='RdYlGn',
+        zmin=range_low,  # Min value
+        zmax=range_high,  
+        hoverongaps = False,
+        colorbar=dict(title='Max Return'),
+        hoverinfo="text",
+        text=[[f"Long: {long}<br>Short: {short}<br>Return Percentage: {max_return:.2f}" for short, max_return in zip(heatmap_data.columns, max_return_values)] for long, max_return_values in zip(heatmap_data.index, heatmap_data.values)],
+        texttemplate="%{text}"
+    ))
+
+    fig.update_xaxes(title_text="Short")
+    fig.update_yaxes(title_text="Long")
+
+    sym_name = symbol.upper()
+    #fig.update_layout(title=f"{sym_name} in {strategy}")
+    fig.update_layout(title=f"{sym_name} in {strategy}")
+
+    fig.show()
+
+# Example usage
+fncsymbolUnderAStrategy('FG', 'AAPL')
