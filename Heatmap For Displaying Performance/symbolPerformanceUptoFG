@@ -1,0 +1,79 @@
+import pandas as pd
+import plotly.graph_objects as go
+import dbTransaction
+import numpy as np
+
+def fncsymbolUnderAStrategy(strategy, symbol):
+    df = dbTransaction.fncForASymbolUnderAStrategy(strategy, symbol)
+
+    if isinstance(df, list):
+        df = pd.DataFrame(df, columns=['BackId', 'SFlag', 'SName', 'SValue', 'SymName', 'MaxReturn'])
+
+    pivot_df = df.pivot(index='BackId', columns='SFlag', values=['SValue', 'MaxReturn'])
+    pivot_df.columns = ['_'.join(map(str, col)) for col in pivot_df.columns.values]
+    pivot_df.reset_index(inplace=True)
+
+    pivot_df.drop_duplicates(subset=['SValue_Long', 'SValue_Short'], inplace=True)
+    pivot_df.rename(columns={'value_Long': 'long', 'value_Short': 'short', 'return_Long': 'long_return', 'return_Short': 'short_return'}, inplace=True)
+    pivot_df.drop(columns=['MaxReturn_Short'], inplace=True)
+
+    min_long = pivot_df['SValue_Long'].min()
+    max_long = pivot_df['SValue_Long'].max()
+    min_short = pivot_df['SValue_Short'].min()
+    max_short = pivot_df['SValue_Short'].max()
+
+    long_range = list(range(int(min_long), int(max_long) + 1))
+    short_range = list(range(int(min_short), int(max_short) + 1))
+
+    z = np.empty((len(long_range), len(short_range)), dtype=object)
+    z.fill('')
+
+    for index, row in pivot_df.iterrows():
+        long_value = row["SValue_Long"]
+        short_value = row["SValue_Short"]
+        max_return_value = row["MaxReturn_Long"]
+
+        long_index = long_range.index(int(long_value))
+        short_index = short_range.index(int(short_value))
+        z[long_index, short_index] = max_return_value
+
+    #heatmap_data = pivot_df.pivot(index='SValue_Long', columns='SValue_Short', values='MaxReturn_Long').astype(float)
+
+    range_high = max(pivot_df['MaxReturn_Long']) if max(pivot_df['MaxReturn_Long']) > 1 else 1
+    range_low = min(pivot_df['MaxReturn_Long']) if min(pivot_df['MaxReturn_Long']) < -1 else -1
+   
+    fig = go.Figure(data=go.Heatmap(
+            z=z,
+            x=short_range,  # Set x to short_range to ensure the correct tick values
+            y=long_range,   # Set y to long_range to ensure the correct tick values
+            colorscale='RdYlGn',
+            zmin=range_low,
+            zmax=range_high,
+            #text=z,
+            texttemplate="%{text}"
+        ))
+    
+    fig.update_xaxes(title_text="Short")
+    fig.update_yaxes(title_text="Long")
+    for i in range(len(long_range)):
+        for j in range(len(short_range)):
+            if z[i, j] != '':
+                sym_name = pivot_df[(pivot_df['SValue_Long'] == long_range[i]) & (pivot_df['SValue_Short'] == short_range[j])]['BackId'].values[0]
+                fig.add_annotation(
+                    x=short_range[j], y=long_range[i],
+                    text=f"{sym_name}<br> {z[i, j]}",
+                    showarrow=False,
+                    font=dict(size=10, color='black'),
+                    xanchor="center",
+                    yanchor="middle"
+                )
+
+    # sym_name = symbol.upper()
+    #fig.update_layout(title=f"{sym_name} in {strategy}")
+    fig.update_layout(title=f"{sym_name} in {strategy}")
+    print("Hello")
+
+    fig.show()
+
+# Example usage
+# fncsymbolUnderAStrategy('VIX', 'AAPL')
