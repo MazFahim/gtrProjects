@@ -1,0 +1,15 @@
+function filterData(filterValue) {
+	$.ajax({
+		url: '@Url.Action("Dashboard", "Home")' , //Dashboard is the action name, Home is the controller name
+		type: 'GET', //type of the request
+		data: { dateRange: filterValue }, //passing value to the action; the daterange is the parameter that receives data, filtervalue contains the value from button
+		success: function (result) { //executes when request is executed succefully
+			var tbodyContent = $(result).find('#orderStatusTable tbody').html(); //the request returns a HTML response, this line extracts table body content where table id is : orderStatusTable
+
+			$('#orderStatusTable tbody').html(tbodyContent); //this line replaces the existing tbody with the extracted tbody content
+		},
+		error: function (error) { // this is to execute when request is not executed successfully
+			console.error('Error:', error);
+		}
+	});
+}
