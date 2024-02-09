@@ -1,0 +1,168 @@
+public async Task<IActionResult> Dashboard(string dateRange = "1d")
+{
+    var userId = HttpContext.Session.GetString("userid");
+    var roles = HttpContext.Session.GetObject<List<UserRole>>("UserRoles");
+
+    ViewBag.FromDate = DateTime.Now.AddDays(-2).Date.ToString("yyyy-MM-dd");
+    ViewBag.ToDate = DateTime.Now.Date.ToString("yyyy-MM-dd");
+    if (string.IsNullOrWhiteSpace(userId))
+    {
+        return RedirectPermanent("~/Identity/Account/Login");
+    }
+
+
+	var userIdInBrokerageSubscribleTable = await _context.tblBrokerageSubscribe.AnyAsync(x => x.UserId == userId);
+
+    if (!userIdInBrokerageSubscribleTable)
+    {
+		ViewBag.UserNotInBrokerTable = true;
+	}
+	await _context.Database.ExecuteSqlRawAsync($"EXEC prcActiveOrderStatus");
+	//var activeOrderStatusList = allActiveOrderStatusList
+	//    .Where(x => x.UserId == Guid.Parse(userId))
+	//    .ToList();
+	var activeOrderStatusList = GetFilteredData(userId, dateRange);
+
+	var model = await _context.tblOrder.OrderByDescending(s => s.TranId).ToListAsync();
+
+    ViewBag.ActiveOrderStatusList = activeOrderStatusList;
+
+    return View(model);
+}
+============================================================================================================================================
+public IActionResult Development()
+{
+    
+    ViewBag.Layout = "_Layout_NavAdmin";
+
+    var viewModel = new DashboardViewModel();
+
+    viewModel.ActiveUsers = _context.ActiveUsers.FromSqlRaw($"EXEC P3Data.dbo.prcGetDataForSystemDashboard 'active user'").ToList();
+    viewModel.HistoryDataDownloadInfo = _context.HistoryDataDownloadInfo.FromSqlRaw($"EXEC P3Data.dbo.prcGetDataForSystemDashboard 'data'").ToList();
+    viewModel.FundamentalDailyDataDownloadInfo = _context.FundamentalDailyDataDownloadInfo.FromSqlRaw($"EXEC P3Data.dbo.prcGetDataForSystemDashboard 'fundamental'").ToList();
+    viewModel.ProcessExecutionInfo = _context.ProcessExecutionInfo.FromSqlRaw($"EXEC P3Data.dbo.prcGetDataForSystemDashboard 'process'").ToList();
+
+    
+    return View(viewModel);
+}
+============================================================================================================================================
+private List<ActiveOrdersViewModel> GetFilteredData(string userId, string dateRange)
+{
+
+	DateTime fromDate;
+
+	switch (dateRange)
+	{
+		case "1d":
+			fromDate = DateTime.Today.AddDays(-1);
+			break;
+		case "5d":
+			fromDate = DateTime.Now.AddDays(-7);
+			break;
+		case "21d":
+			fromDate = DateTime.Now.AddMonths(-1);
+			break;
+		case "1y":
+			fromDate = DateTime.Now.AddYears(-1);
+			break;
+		case "max":
+			fromDate = DateTime.MinValue;
+			break;
+		default:
+			fromDate = DateTime.Now.AddDays(-1);
+			break;
+	}
+    if (dateRange.ToLower()=="max")
+    {
+		return _context.tblActiveOrderStatus.ToList();
+	}
+    else
+    {
+		return _context.tblActiveOrderStatus
+		.Where(x => x.UserId == Guid.Parse(userId) && x.DtDate >= fromDate)
+		.ToList();
+	}
+	
+}
+============================================================================================================================================
+public async Task<IActionResult> ActivePositions(string userName)
+{
+    ViewBag.Layout = "_Layout_NavAdmin";
+    var userId = await _context.tblAllOrderPositions.OrderBy(a => a.DtTranIn)
+        .Where(a => a.email == userName).Select(a => a.UserGuid).FirstOrDefaultAsync();
+    var positionList = await _context.tblAllOrderPositions
+        .Where(a => a.UserGuid == userId)
+        .ToListAsync();
+    ViewBag.PositionList = positionList;
+    return View();
+}
+============================================================================================================================================
+[HttpPost]
+public async Task<ActionResult> GetAllPositionsData()
+{
+    try
+    {
+        var client = new HttpClient();
+        string apiUrl = "http://101.2.165.187:8088/getallpositionorder";
+
+        var tokenLists = await _context.tblBrokerageSubscribe
+            .Where(x => x.Token != null)
+            .Select(x => x.Token)
+            .ToListAsync();
+
+        client.BaseAddress = new Uri(apiUrl);
+        foreach (var token in tokenLists)
+        {
+            var jsonRequest = JsonConvert.SerializeObject(new { token = token });
+            //var jsonRequest = JsonConvert.SerializeObject(token);
+            var content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
+
+            var userId = await _context.tblBrokerageSubscribe
+                .Where(a => a.Token == token)
+                .Select(a => a.UserId)
+                .FirstOrDefaultAsync();
+
+            var response = await client.PostAsync($"http://101.2.165.187:8088/api/getallpositionorder/", content);
+            if (response.IsSuccessStatusCode)
+            {
+                var data = await response.Content.ReadAsStringAsync();
+                var responseDataList = JsonConvert.DeserializeObject<List<positionOrderApiModel>>(data);
+                var mappedDataList = new List<positionOrderDbModel>();
+                foreach (var responseData in responseDataList)
+                {
+                    var mappedData = new positionOrderDbModel
+                    {
+                        userGuidId = Guid.Parse(userId),
+                        symName = responseData.Symbol,
+                        qty = responseData.Qty,
+                        side = responseData.Side,
+                        marketValue = responseData.market_value
+                    };
+                    _context.tblOrderPositions.Add(mappedData);
+                }
+                await _context.SaveChangesAsync();
+
+            }
+            //break;
+        }
+        await _context.Database.ExecuteSqlRawAsync($"EXEC prcUpdateAllOrderPositions");
+       
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(ex);
+    }
+    //HttpResponseMessage response = await client.PostAsync(apiUrl);
+
+    return Json(new { success = true });
+}
+============================================================================================================================================
+[HttpGet]
+public JsonResult GetClosedPrices(string symName, DateTime dtDate, DateTime dtTranOut)
+{
+	var data = _context.ClosePricesInfo
+        .FromSqlRaw($"EXEC P3Data.dbo.prcGetClosePrices '{symName}', '{dtDate}', '{dtTranOut}'")
+        .ToList();
+	
+	return Json(data);
+}
