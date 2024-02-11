@@ -1,0 +1,45 @@
+function filterData(filterValue) {
+	$.ajax({
+		url: '@Url.Action("GetOrderSummary", "Home")',
+		type: 'GET',
+		data: { dateRange: filterValue },
+		success: function (result) {
+			
+			var tableBody = $('#activeOrdersTable tbody');
+			tableBody.empty();
+
+			var totalPLSum = 0;
+
+			$.each(result, function (i, row) {
+				var bgColor = row.orderStatus === 'Active' ? 'lightgreen' : '';
+
+				var rows = "<tr style='background-color: " + bgColor + "'>"
+					+ "<td>" + row["dtDate"]+ "</td>"
+					+ "<td>" + row.stratName + "</td>"
+					+ "<td>" + row.symName + "</td>"
+					+ "<td>" + row.tranType + "</td>"
+					+ "<td>" + row.qtyIn + " X " + row.rateIn + " = " + row.amountIn + "</td>"
+					+ "<td>" + row.qtyIn + " X " + row.currentPrice + " = " + row.currentValue + "</td>"
+					+ "<td>" + row.totalPL + "</td>"
+					+ "<td>" + row.orderStatus + "</td>"
+					+ "<td><button class='btn btn-info' onclick='showChart(\""+row.symName+"\",\""+row.dtDate+"\",\""+
+					row.dtTranOut+"\", \""+row.orderStatus+"\")'>Chart</button></td>"
+					+ "</tr>";
+				$('#activeOrdersTable tbody').append(rows);
+
+				totalPLSum += parseFloat(row.totalPL);
+			});
+
+			// Add the total P/L row
+			var totalPLRow = $('<tr>').css('text-align', 'right').css('vertical-align', 'middle').appendTo(tableBody);
+			$('<th>').attr('colspan', '6').text('Sum of Total P/L').appendTo(totalPLRow);
+			$('<th>').text(totalPLSum.toFixed(2)).appendTo(totalPLRow);
+
+
+			summaryChart(filterValue);
+		},
+		error: function (error) {
+			console.error('Error:', error);
+		}
+	});
+}
