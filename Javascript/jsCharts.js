@@ -1,3 +1,5 @@
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
 function summaryChart(filterValue) {
 	console.log(filterValue);
 	if (chart) {
