@@ -1,0 +1,2 @@
+docker build -t feargeedindex:latest .
+docker run -d --name feargeedindex -p 7756:80 -v D:\docker_volume:/code feargeedindex
